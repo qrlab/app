@@ -48,9 +48,9 @@ function addGeoJsonTrack(geojson) {
 
             zip(middleCoords, vs)
                 .filter(([_, v]) => !!v)
-                .forEach(([coord, v]) => {
+                .forEach(([coord, speed]) => {
                     const circle = L.circle(coord, {
-                        radius: v * 1,
+                        radius: speed * 1,
                         weight: 1,
                         fillColor: '#ff0',
                         fillOpacity: 1,
@@ -58,7 +58,8 @@ function addGeoJsonTrack(geojson) {
                     })
                         .addTo(appMap)
 
-                    circle.bindPopup(`${props.type} ${round(v, 10)} km/h`)
+                    const circleProps = omit(['links', 'coordTimes'])(Object.assign(props, {speed}))
+                    circle.bindPopup(`<div>${propsToTable(circleProps)}</div>`)
                 })
         }
     })
@@ -72,6 +73,27 @@ function xmlDom(xml) {
     return p.parseFromString(xml, 'text/xml')
 }
 
+function propsToTable(props) {
+    const rows = Object
+        .keys(props)
+        .map(name => [name, props[name]])
+        .map(([name, value]) => `
+            <tr>
+                <td>${name}</td>
+                <td>${value}</td>
+            </tr>
+        `)
+        .join('')
+
+    return `
+        <table class="map-popup-table">
+            <thead><tr>
+                <th>Name</th>
+                <th>Value</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`
+}
 /**
  * f([x, y, z, ...], [m, n, k, ...]) -> [[x, m], [y, n], [z, k], ...]
  * @param list1
@@ -122,6 +144,36 @@ function compose(...fns) {
  */
 function map(fn) {
     return list => Promise.all(list.map(fn))
+}
+
+/**
+ *
+ * f(xs) -> g(i) -> {...k if k not in xs}
+ *
+ * @return {function(*=)}
+ * @param predicate
+ */
+function filterKeysBy(predicate) {
+    return obj => Object
+        .keys(obj)
+        .filter(predicate)
+        .reduce(
+            (acc, key) => Object.assign(acc, {[key]: obj[key]}),
+            {}
+        )
+}
+
+/**
+ *
+ * f(xs) -> g(i) -> {...k if k not in xs}
+ *
+ * @param keys
+ * @return {function(*=)}
+ */
+function omit(keys) {
+    return keys
+        ? filterKeysBy(k => !keys.includes(k))
+        : i => i
 }
 
 function round(v, n) {

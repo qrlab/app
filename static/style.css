@@ -1,0 +1,11 @@
+.map-popup-table th {
+    padding: 0 0.5em 1.25em;
+}
+
+.map-popup-table tbody tr:nth-child(odd) {
+    background-color: #f2f2f2;
+}
+
+.map-popup-table td {
+    padding: 0.5em;
+}
