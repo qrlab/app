@@ -1,0 +1,14 @@
+version: '2'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    links:
+      - redis:redis
+    volumes:
+      - ./QL_Drive-47cadde9be65.json:/app/client_secrets.json
+    ports:
+      - "1950:5000"
+  redis:
+    image: redis
