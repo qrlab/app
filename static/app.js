@@ -7,12 +7,63 @@ L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/dark-v9/tiles/256/{z}/{x}/{
 }).addTo(appMap)
 
 function main(initialData) {
+    const parser = {
+        'gpx': compose(addGeoJsonTrack, toGeoJSON.gpx, xmlDom),
+        'geojson': addGeoJson,
+        'checkins.geojson': addCheckins,
+    }
+
     const files = initialData.files
         ? initialData.files
         : []
-    const filesData = files.map(f => f.data)
 
-    return map(compose(addGeoJsonTrack, toGeoJSON.gpx, xmlDom))(filesData)
+    const checkins = files.filter(file => endsWith('checkins.geojson', file.name))
+    const tracks = files.filter(file => endsWith('gpx', file.name))
+
+    tracks
+        .map(f => f.data)
+        .map(parser['gpx'])
+
+    checkins
+        .map(f => f.data)
+        .map(toJson)
+        .map(parser['checkins.geojson'])
+
+    L.marker(quartariataPosition).addTo(appMap)
+}
+
+function addGeoJson(geojson) {
+    const layer = L.geoJSON(geojson)
+    layer.addTo(appMap)
+    return layer
+}
+
+function addCheckins(geojson) {
+    const features = getFeatures(geojson, feature => feature.geometry.type === 'Point')
+
+    const maxCheckins = features
+        .map(f => f.properties.checkins)
+        .reduce((max, i) => Math.max(max, i), 0)
+
+    return features
+        .map(feature => {
+            const geom = feature.geometry
+            const props = feature.properties
+            const coord = geom.coordinates.reverse()
+            const radius = remap(props.checkins, [0, maxCheckins], [3, 50])
+
+            console.log(props)
+
+            const circle = L.circle(coord, {
+                radius: radius,
+                weight: 1,
+                fillColor: '#f0f',
+                fillOpacity: 1,
+                stroke: null,
+            })
+            circle.addTo(appMap)
+            circle.bindPopup(`<div>${propsToTable(props)}</div>`)
+        })
 }
 
 function addGeoJsonTrack(geojson) {
@@ -68,6 +119,19 @@ function addGeoJsonTrack(geojson) {
     return track
 }
 
+function getFeatures(geojson, filter) {
+    const features = []
+    L.geoJSON(geojson, {
+        filter: isFunction(filter)
+            ? filter
+            : f => true,
+        onEachFeature: feature => {
+            features.push(feature)
+        }
+    })
+    return features
+}
+
 function xmlDom(xml) {
     const p = new DOMParser();
     return p.parseFromString(xml, 'text/xml')
@@ -94,6 +158,21 @@ function propsToTable(props) {
             <tbody>${rows}</tbody>
         </table>`
 }
+
+function isFunction(param) {
+    return typeof param === 'function'
+}
+
+function toJson(value) {
+    try {
+        return typeof value === 'string'
+            ? JSON.parse(value)
+            : value
+    } catch (e) {
+        return value
+    }
+}
+
 /**
  * f([x, y, z, ...], [m, n, k, ...]) -> [[x, m], [y, n], [z, k], ...]
  * @param list1
@@ -178,4 +257,24 @@ function omit(keys) {
 
 function round(v, n) {
     return Math.round(v * n) / n
+}
+
+function endsWith(searchString, subjectString) {
+    let position = subjectString.length
+    position -= searchString.length
+    const lastIndex = subjectString.indexOf(searchString, position)
+    return lastIndex !== -1 && lastIndex === position
+}
+
+/**
+ *
+ * f(x, [m,n], [p,q]) -> x from m-n to y from p-q
+ *
+ * @param value
+ * @param from
+ * @param to
+ */
+function remap(value, from, to) {
+    const r = (value - from[0]) / (from[1] - from[0])
+    return to[0] + (to[1] - to[0]) * r
 }

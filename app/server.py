@@ -37,7 +37,7 @@ def maps_empty():
 @app.route('/maps/<drive_id>')
 def maps(drive_id):
     response = drive.get_file_list(
-        q="'{id}' in parents and fileExtension='gpx'".format(id=drive_id),
+        q="'{id}' in parents and (fileExtension='gpx' or fileExtension='geojson')".format(id=drive_id),
         fields="files(id,version,name)"
     )
     files = response['files']
