@@ -1,8 +1,6 @@
 import os
 from redis import StrictRedis
 
-import drive
-
 redis_host = os.getenv('REDIS_HOST', 'localhost')
 redis_port = os.getenv('REDIS_PORT', 6379)
 redis_ttl = os.getenv('REDIS_TTL', 3600 * 24 * 7)
