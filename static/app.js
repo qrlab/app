@@ -12,6 +12,7 @@ function main(initialData) {
         'geojson': addGeoJson,
         'checkins.geojson': addCheckins,
         'images.geojson': addImages,
+        'flows.json': addFlow,
     }
 
     const files = initialData.files
@@ -34,6 +35,11 @@ function main(initialData) {
     images
         .map(f => f.data)
         .map(parser['images.geojson'])
+
+    flows
+        .map(f => f.data)
+        .map(toJson)
+        .map(parser['flows.json'])
 
     L.marker(quartariataPosition).addTo(appMap)
 }
@@ -311,4 +317,220 @@ function endsWith(searchString, subjectString) {
 function remap(value, from, to) {
     const r = (value - from[0]) / (from[1] - from[0])
     return to[0] + (to[1] - to[0]) * r
+}
+
+
+function addFlow(json) {
+    // Converts from degrees to radians.
+    function to_radians(degrees) {
+        return degrees * Math.PI / 180;
+    };
+
+    function count_all_cats(item) {
+        return item.data.school.length + item.data.y1017.length + item.data.stuptu.length +
+            item.data.ku.length + item.data.z.length + item.data.rr.length + item.data.pens.length
+    }
+
+    function add_category_cricle(name, color, point, layer) {
+        if (name in point.directions) {
+            layer.addLayer(get_circle([point.lat, point.lon], point.directions[name].length, color))
+        }
+    }
+
+    function get_composite_line(latlng, angle, parts) {
+        var lg = L.layerGroup()
+        var tmp_lenght = 0
+        var new_length = 0
+        var latlngs = []
+        // angle = 0
+        $.each(parts, function (index, part) {
+            new_length = tmp_lenght + part.length
+            lg.addLayer(get_line_by_angle(latlng, angle, tmp_lenght, new_length, part.color))
+            tmp_lenght = new_length
+        });
+
+        return lg;
+    };
+
+    function get_categories() {
+        return {
+            'preschoolers': 'Дошкольники',
+            'y1017': '10-17 лет',
+            'students': 'Студенты',
+            'cadets': 'Курсанты',
+            'employeed': 'Занятые',
+            'parent_children': 'Родители с детьми',
+            'pensioners': 'Пенсионеры'
+        }
+    }
+
+    function get_category_color(cat_name) {
+        const colors = {
+            employeed: 'Aquamarine',
+            preschoolers: 'red',
+            y1017: 'LightCyan',
+            cadets: 'LightSalmon',
+            students: 'cyan',
+            employeed: 'MediumSpringGreen',
+            parent_children: 'MediumPurple',
+            pensioners: 'blue'
+        }
+        return colors[cat_name]
+    }
+
+    function add_direction(latlng, angle, cats, layer, length_ratio = 1) {
+        // d1 = [{length:15, color:'red'}, {length:5, color:'blue'}, {length:10, color:'green'}]
+        // d2 = [{length:30, color:'red'}]
+        d = []
+        $.each(cats, function (cat, count) {
+            d.push({length: count * length_ratio, color: get_category_color(cat)})
+        });
+        layer.addLayer(get_composite_line(latlng, angle, d))
+    }
+
+
+    function get_angle(dir, point_number) {
+        angles = {
+            A: 0,
+            B: 180,
+            C: 225,
+            D: 135,
+            E: 270,
+            F: 90,
+            L: 315,
+            K: 45
+        }
+        angle = angles[dir]
+        if (point_number == 1) {
+            angle = angle - 15
+        }
+        if (point_number == 2) {
+            angle = angle - 15
+        }
+        if (point_number == 4) {
+            angle = angle - 15
+        }
+        if (point_number == 5) {
+            angle = angle - 15
+        }
+        // // if(point_number == 2){
+        //     return angles[dir]
+        // }
+        return angle
+
+    }
+
+    function get_line_by_angle(latlon, angle, length_start, length_finish, color) {
+        angle = to_radians(angle);
+        var center_point = appMap.project(latlon, 17)
+        var from_point = L.point(center_point.x + length_start * Math.sin(angle), center_point.y + length_start * Math.cos(angle))
+        var to_point = L.point(center_point.x + length_finish * Math.sin(angle), center_point.y + length_finish * Math.cos(angle))
+        var latlngs = [
+            appMap.unproject(from_point, 17),
+            appMap.unproject(to_point, 17)
+        ];
+        return L.polyline(latlngs, {color: color});
+    };
+
+    function test_rose(layer) {
+        lg = L.layerGroup()
+        var latlng = [59.882608, 29.896333]
+        for (var i = 0; i < 10; i++) {
+            lg.addLayer(get_line_by_angle(latlng, i * 36, 0, 100, 'red'))
+            lg.addLayer(get_line_by_angle(latlng, i * 36, 100, 200, 'blue'))
+        }
+        lg.addTo(appMap)
+    }
+
+
+    function get_session_layer(points_data) {
+        var layer = L.layerGroup();
+        $.each(points_data, function (index, point) {
+            if (index == index) {
+                $.each(point.directions, function (dir_name, dir_data) {
+                    add_direction([point.lat, point.lon], get_angle(dir_name, index), dir_data, layer, 2)
+                });
+                layer.addLayer(get_circle([point.lat, point.lon], 2, "red"))
+
+            }
+        });
+        // test_rose(layer)
+
+        return layer
+    }
+
+    function legend() {
+        var legend = L.control({position: 'bottomright'});
+
+        legend.onAdd = function (map) {
+
+            var div = L.DomUtil.create('div', 'info legend'),
+                labels = [];
+
+            // loop through our density intervals and generate a label with a colored square for each interval
+            $.each(get_categories(), function (cat, cat_descr) {
+                div.innerHTML +=
+                    '<i style="background:' + get_category_color(cat) + '"></i> ' + cat_descr + '<br>';
+            });
+
+            return div;
+        };
+
+        legend.addTo(appMap);
+    }
+
+    function draw(data) {
+        var baseMaps = {
+            // "Light": light,
+            // "Dark": dark,
+            // "Stamen_TonerLite": Stamen_TonerLite,
+            // "Stamen_Watercolor": Stamen_Watercolor,
+            // "OpenStreetMap_BlackAndWhite": OpenStreetMap_BlackAndWhite,
+            // "Esri_WorldImagery": Esri_WorldImagery
+        };
+
+        var sessions_overlay = {};
+
+        var show = true
+        $.each(data, function (index, session) {
+            l = get_session_layer(session.points)
+            if (show) {
+                l.addTo(appMap)
+                show = false
+            }
+            sessions_overlay[session.description] = l
+        });
+
+
+        var groupedOverlays = {
+            "Sessions": sessions_overlay,
+        };
+
+        var options = {
+            // Make the "Landmarks" group exclusive (use radio inputs)
+            exclusiveGroups: ["Sessions"]
+            // Show a checkbox next to non-exclusive group labels for toggling all
+            // groupCheckboxes: true
+        };
+
+        L.control.groupedLayers(baseMaps, groupedOverlays, options).addTo(appMap);
+        legend()
+        // L.control.layers(baseMaps, overlayMaps).addTo(appMap);
+        // test_rose()
+    };
+
+    function get_circle(point, radius, color) {
+        return L.circle(point, {
+            color: color,
+            fillColor: color,
+            fillOpacity: 1,
+            radius: radius
+        });
+    };
+
+    function marker(point) {
+        L.marker(point).addTo(appMap);
+    }
+
+    draw(json)
 }
