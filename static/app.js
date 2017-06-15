@@ -22,6 +22,7 @@ function main(initialData) {
     const checkins = files.filter(file => endsWith('checkins.geojson', file.name))
     const tracks = files.filter(file => endsWith('gpx', file.name))
     const images = files.filter(file => endsWith('images.geojson', file.name))
+    const flows = files.filter(file => endsWith('flows.json', file.name))
 
     tracks
         .map(f => f.data)
