@@ -11,6 +11,7 @@ function main(initialData) {
         'gpx': compose(addGeoJsonTrack, toGeoJSON.gpx, xmlDom),
         'geojson': addGeoJson,
         'checkins.geojson': addCheckins,
+        'images.geojson': addImages,
     }
 
     const files = initialData.files
@@ -19,6 +20,7 @@ function main(initialData) {
 
     const checkins = files.filter(file => endsWith('checkins.geojson', file.name))
     const tracks = files.filter(file => endsWith('gpx', file.name))
+    const images = files.filter(file => endsWith('images.geojson', file.name))
 
     tracks
         .map(f => f.data)
@@ -29,6 +31,10 @@ function main(initialData) {
         .map(toJson)
         .map(parser['checkins.geojson'])
 
+    images
+        .map(f => f.data)
+        .map(parser['images.geojson'])
+
     L.marker(quartariataPosition).addTo(appMap)
 }
 
@@ -36,6 +42,34 @@ function addGeoJson(geojson) {
     const layer = L.geoJSON(geojson)
     layer.addTo(appMap)
     return layer
+}
+
+function addImages(geojson) {
+    const features = getFeatures(geojson)
+    return features
+        .map(feature => {
+            const geom = feature.geometry
+            const props = feature.properties
+            const coord = geom.coordinates.reverse()
+
+            const myIcon = L.divIcon({
+                html: `<div class="marker-image"><img src="${props.fileUrl}"/></div>`,
+            })
+
+            // you can set .my-div-icon styles in CSS
+            L.marker(coord, {icon: myIcon}).addTo(appMap)
+
+            // const icon = new L.ExpressiveIcon({
+            //     html : `<div class="marker-image">${props.name}</div>`,
+            //     iconAnchor: [0, 0],
+            // })
+            //
+            // const marker = new L.Marker(coord, {icon: icon})
+            // marker.addTo(appMap)
+            //
+            // const marker2 = new L.Marker(coord)
+            // appMap.addLayer(marker2)
+        })
 }
 
 function addCheckins(geojson) {

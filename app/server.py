@@ -1,7 +1,8 @@
 import json
-from flask import Flask, render_template, redirect, send_from_directory
+from flask import Flask, render_template, redirect, send_from_directory, Response
 
 import drive
+import image
 from cache import cache
 
 app = Flask(__name__)
@@ -14,8 +15,8 @@ def dl(drive_id):
     return drive.file_download(drive_id)
 
 
-def to_str(data):
-    return data.decode() if data else None
+def dl_json(drive_id):
+    return drive.file_json(drive_id)
 
 
 @app.route('/')
@@ -36,15 +37,31 @@ def maps_empty():
 
 @app.route('/maps/<drive_id>')
 def maps(drive_id):
-    response = drive.get_file_list(
-        q="'{id}' in parents and (fileExtension='gpx' or fileExtension='geojson')".format(id=drive_id),
-        fields="files(id,version,name)"
-    )
-    files = response['files']
-    contents = [{**f, 'data': to_str(dl(f['id']))} for f in files]
+    contents = drive.load_folder(drive_id)
 
     initial_data = json.dumps({'files': contents}, ensure_ascii=False)
     return render_template('index.html', initialData=initial_data)
+
+
+@app.route('/file/<drive_id>')
+def files(drive_id):
+    try:
+        data = drive.file_json(drive_id)
+        if not data:
+            return 'Not Found.', 404
+
+        mime = data['mimeType']
+        if not ('data' in data):
+            data = drive.file_download(drive_id)
+
+        return Response(data, mimetype=mime)
+    except TypeError as e:
+        print(e)
+        return "Don't work. Sorry.", 400
+
+    except Exception as e:
+        print(e)
+        return str(e), 400
 
 
 if __name__ == '__main__':
