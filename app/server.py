@@ -52,7 +52,7 @@ def files(drive_id):
 
         mime = data['mimeType']
         if not ('data' in data):
-            data = drive.file_download(drive_id)
+            data = drive.file_download_www(drive_id)
 
         return Response(data, mimetype=mime)
     except TypeError as e:

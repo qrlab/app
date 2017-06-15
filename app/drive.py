@@ -60,17 +60,13 @@ def make_thumbnail():
 @cache(
     lambda *args: file_meta(*args, fields=['id', 'version'])
 )
-@make_thumbnail()
 def file_download(file_id):
     return drive.files().get_media(fileId=file_id).execute()
 
 
-@cache(
-    lambda *args: file_meta(*args, fields=['id', 'version'])
-)
-def file_download_and_transform(file_id, transform_fn):
-    data = drive.files().get_media(fileId=file_id).execute()
-    return transform_fn(data)
+@make_thumbnail()
+def file_download_www(file_id):
+    return file_download(file_id)
 
 
 def file_json(drive_id):

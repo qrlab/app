@@ -48,8 +48,12 @@ def get_coord(image_data: bytes):
     image = Image.open(io.BytesIO(image_data))
     if not image:
         return None
-    gps = get_exif_gps(image)
-    return exif_gps_to_coord(gps) if gps else None
+    try:
+        gps = get_exif_gps(image)
+        return exif_gps_to_coord(gps) if gps else None
+    except Exception as e:
+        print(e)
+        return None
 
 
 def compose(*fns):
